@@ -27,7 +27,7 @@ public class GameMenuGUI extends JFrame {
         try {
             game = (GameRMI) Naming.lookup("rmi://" + SERVER_IP + "/GameBattleship");
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "❌ No se pudo conectar al servidor");
+            JOptionPane.showMessageDialog(this, "No se pudo conectar al servidor");
             System.exit(1);
         }
 
@@ -41,7 +41,7 @@ public class GameMenuGUI extends JFrame {
         try {
             playerName = JOptionPane.showInputDialog(this, "Ingrese su nombre:");
             playerId = game.registerPlayer(playerName);
-            JOptionPane.showMessageDialog(this, "✅ Jugador registrado: " + playerName + " (ID: " + playerId + ")");
+            JOptionPane.showMessageDialog(this, "Jugador registrado: " + playerName + " (ID: " + playerId + ")");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -61,7 +61,7 @@ public class GameMenuGUI extends JFrame {
             String input = JOptionPane.showInputDialog(this, "Ingrese el ID del jugador a eliminar:");
             int id = Integer.parseInt(input);
             if (id == playerId) {
-                JOptionPane.showMessageDialog(this, "❌ No puedes eliminar tu propio jugador.");
+                JOptionPane.showMessageDialog(this, "No puedes eliminar tu propio jugador.");
                 return;
             }
             boolean removed = game.removePlayer(id);
@@ -73,10 +73,10 @@ public class GameMenuGUI extends JFrame {
 
     private void startGame() {
         if (playerId == 0) {
-            JOptionPane.showMessageDialog(this, "⚠️ Primero debe registrar un jugador.");
+            JOptionPane.showMessageDialog(this, "Primero debe registrar un jugador.");
             return;
         }
-        dispose(); // cerrar menú
+        dispose();
         GameClientGUI gui = new GameClientGUI(game, playerId, playerName);
         gui.setVisible(true);
     }
