@@ -13,6 +13,7 @@ public class GameClientGUI extends JFrame {
     private int[] shipSizes = {2, 3, 4};
     private int currentShip = 0;
     private boolean placingShips = true;
+    private JButton readyButton;
 
     public GameClientGUI(GameRMI game, int playerId, String playerName) {
         this.game = game;
@@ -24,7 +25,6 @@ public class GameClientGUI extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // Panel de tableros
         JPanel boardsPanel = new JPanel(new GridLayout(1, 2, 20, 20));
 
         // Tablero propio
@@ -36,13 +36,9 @@ public class GameClientGUI extends JFrame {
                 int x = i, y = j;
                 myBoardButtons[i][j] = new JButton("~");
                 myBoardButtons[i][j].setBackground(Color.CYAN);
-
                 myBoardButtons[i][j].addActionListener(e -> {
-                    if (placingShips) {
-                        placeShipAt(x, y);
-                    }
+                    if (placingShips) placeShipAt(x, y);
                 });
-
                 myBoardPanel.add(myBoardButtons[i][j]);
             }
         }
@@ -57,18 +53,13 @@ public class GameClientGUI extends JFrame {
                 enemyBoardButtons[i][j] = new JButton("~");
                 enemyBoardButtons[i][j].setBackground(Color.CYAN);
                 enemyBoardButtons[i][j].setEnabled(false);
-
                 enemyBoardButtons[i][j].addActionListener(e -> {
                     try {
                         String result = game.shoot(playerId, x, y);
                         log(result);
                         updateBoards();
-                        refreshTurn();
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
+                    } catch (Exception ex) { ex.printStackTrace(); }
                 });
-
                 enemyBoardPanel.add(enemyBoardButtons[i][j]);
             }
         }
@@ -76,7 +67,7 @@ public class GameClientGUI extends JFrame {
         boardsPanel.add(myBoardPanel);
         boardsPanel.add(enemyBoardPanel);
 
-        // Área de mensajes
+        // Área mensajes
         logArea = new JTextArea();
         logArea.setEditable(false);
         JScrollPane scrollPane = new JScrollPane(logArea);
@@ -86,16 +77,23 @@ public class GameClientGUI extends JFrame {
         add(scrollPane, BorderLayout.SOUTH);
 
         log("✅ Bienvenido " + playerName + ". Coloca tus barcos en el tablero.");
+
+        // Polling para turnos
+        new Thread(() -> {
+            while (true) {
+                try {
+                    SwingUtilities.invokeLater(this::refreshTurn);
+                    Thread.sleep(2000);
+                } catch (Exception e) { e.printStackTrace(); }
+            }
+        }).start();
     }
 
     private void placeShipAt(int x, int y) {
         try {
             int size = shipSizes[currentShip];
             String orientation = JOptionPane.showInputDialog(
-                    this,
-                    "Barco de tamaño " + size + " - Orientación (H/V):"
-            );
-
+                    this, "Barco de tamaño " + size + " - Orientación (H/V):");
             if (orientation == null) return;
             orientation = orientation.toUpperCase();
 
@@ -104,25 +102,27 @@ public class GameClientGUI extends JFrame {
                 log("✅ Barco de tamaño " + size + " colocado en (" + x + "," + y + ")");
                 updateBoards();
                 currentShip++;
-
                 if (currentShip >= shipSizes.length) {
                     placingShips = false;
-                    refreshTurn(); // mostrar de quién es el turno
+                    showReadyButton();
                 }
             } else {
-                log("❌ No se pudo colocar el barco en (" + x + "," + y + ")");
+                log("❌ No se pudo colocar el barco.");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
-    private void enableEnemyBoard(boolean enable) {
-        for (int i = 0; i < 10; i++) {
-            for (int j = 0; j < 10; j++) {
-                enemyBoardButtons[i][j].setEnabled(enable);
-            }
-        }
+    private void showReadyButton() {
+        readyButton = new JButton("✅ Listo para jugar");
+        add(readyButton, BorderLayout.NORTH);
+        revalidate();
+        readyButton.addActionListener(e -> {
+            try {
+                game.setPlayerReady(playerId);
+                log("⏳ Esperando a los demás jugadores...");
+                readyButton.setEnabled(false);
+            } catch (Exception ex) { ex.printStackTrace(); }
+        });
     }
 
     private void updateBoards() {
@@ -139,27 +139,26 @@ public class GameClientGUI extends JFrame {
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void refreshTurn() {
         try {
             String msg = game.getCurrentTurn();
             log(msg);
-
             if (msg.contains(playerName)) {
                 enableEnemyBoard(true);
             } else {
                 enableEnemyBoard(false);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
-    private void log(String msg) {
-        logArea.append(msg + "\n");
+    private void enableEnemyBoard(boolean enable) {
+        for (int i = 0; i < 10; i++)
+            for (int j = 0; j < 10; j++)
+                enemyBoardButtons[i][j].setEnabled(enable);
     }
+
+    private void log(String msg) { logArea.append(msg + "\n"); }
 }
