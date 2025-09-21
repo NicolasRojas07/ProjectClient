@@ -1,7 +1,5 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 public class GameClientGUI extends JFrame {
     private final GameRMI game;
@@ -12,9 +10,9 @@ public class GameClientGUI extends JFrame {
     private JButton[][] enemyBoardButtons;
     private JTextArea logArea;
 
-    private int[] shipSizes = {2, 3, 4}; // barcos a colocar
-    private int currentShip = 0;          // índice del barco actual
-    private boolean placingShips = true;  // modo colocación de barcos
+    private int[] shipSizes = {2, 3, 4};
+    private int currentShip = 0;
+    private boolean placingShips = true;
 
     public GameClientGUI(GameRMI game, int playerId, String playerName) {
         this.game = game;
@@ -39,7 +37,6 @@ public class GameClientGUI extends JFrame {
                 myBoardButtons[i][j] = new JButton("~");
                 myBoardButtons[i][j].setBackground(Color.CYAN);
 
-                // 🔹 Usar clicks para colocar barcos
                 myBoardButtons[i][j].addActionListener(e -> {
                     if (placingShips) {
                         placeShipAt(x, y);
@@ -59,18 +56,16 @@ public class GameClientGUI extends JFrame {
                 int x = i, y = j;
                 enemyBoardButtons[i][j] = new JButton("~");
                 enemyBoardButtons[i][j].setBackground(Color.CYAN);
-                enemyBoardButtons[i][j].setEnabled(false); // desactivado hasta terminar colocación
+                enemyBoardButtons[i][j].setEnabled(false);
 
-                enemyBoardButtons[i][j].addActionListener(new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        try {
-                            String result = game.shoot(playerId, x, y);
-                            log("Disparo en (" + x + "," + y + "): " + result);
-                            updateBoards();
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                        }
+                enemyBoardButtons[i][j].addActionListener(e -> {
+                    try {
+                        String result = game.shoot(playerId, x, y);
+                        log(result);
+                        updateBoards();
+                        refreshTurn();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
                     }
                 });
 
@@ -91,10 +86,8 @@ public class GameClientGUI extends JFrame {
         add(scrollPane, BorderLayout.SOUTH);
 
         log("✅ Bienvenido " + playerName + ". Coloca tus barcos en el tablero.");
-        log("👉 Haz clic en las casillas para colocar tus barcos.");
     }
 
-    // 🔹 Colocar barcos en el tablero propio
     private void placeShipAt(int x, int y) {
         try {
             int size = shipSizes[currentShip];
@@ -103,7 +96,7 @@ public class GameClientGUI extends JFrame {
                     "Barco de tamaño " + size + " - Orientación (H/V):"
             );
 
-            if (orientation == null) return; // cancelar
+            if (orientation == null) return;
             orientation = orientation.toUpperCase();
 
             boolean placed = game.placeShip(playerId, x, y, size, orientation);
@@ -114,8 +107,7 @@ public class GameClientGUI extends JFrame {
 
                 if (currentShip >= shipSizes.length) {
                     placingShips = false;
-                    enableEnemyBoard(true);
-                    log("🚀 Todos los barcos colocados. ¡Comienza la batalla!");
+                    refreshTurn(); // mostrar de quién es el turno
                 }
             } else {
                 log("❌ No se pudo colocar el barco en (" + x + "," + y + ")");
@@ -125,7 +117,6 @@ public class GameClientGUI extends JFrame {
         }
     }
 
-    // 🔹 Activar/desactivar tablero enemigo
     private void enableEnemyBoard(boolean enable) {
         for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 10; j++) {
@@ -134,11 +125,9 @@ public class GameClientGUI extends JFrame {
         }
     }
 
-    // 🔹 Actualizar tableros desde el servidor
     private void updateBoards() {
         try {
             char[][] myBoard = game.getBoard(playerId);
-
             for (int i = 0; i < 10; i++) {
                 for (int j = 0; j < 10; j++) {
                     myBoardButtons[i][j].setText(String.valueOf(myBoard[i][j]));
@@ -155,7 +144,21 @@ public class GameClientGUI extends JFrame {
         }
     }
 
-    // 🔹 Mensajes en el área de texto
+    private void refreshTurn() {
+        try {
+            String msg = game.getCurrentTurn();
+            log(msg);
+
+            if (msg.contains(playerName)) {
+                enableEnemyBoard(true);
+            } else {
+                enableEnemyBoard(false);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void log(String msg) {
         logArea.append(msg + "\n");
     }

@@ -6,7 +6,7 @@ public class GameMenuGUI extends JFrame {
     private static GameRMI game;
     private static int playerId;
     private static String playerName;
-    private static final String SERVER_IP = "192.168.20.163"; // Cambiar según servidor
+    private static final String SERVER_IP = "192.168.20.163"; // 🔹 IP del Mac servidor
 
     public GameMenuGUI() {
         setTitle("Menú de Batalla Naval");
@@ -27,7 +27,7 @@ public class GameMenuGUI extends JFrame {
         try {
             game = (GameRMI) Naming.lookup("rmi://" + SERVER_IP + "/GameBattleship");
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "No se pudo conectar al servidor");
+            JOptionPane.showMessageDialog(this, "❌ No se pudo conectar al servidor");
             System.exit(1);
         }
 
@@ -40,8 +40,10 @@ public class GameMenuGUI extends JFrame {
     private void registerPlayer() {
         try {
             playerName = JOptionPane.showInputDialog(this, "Ingrese su nombre:");
+            if (playerName == null || playerName.trim().isEmpty()) return;
             playerId = game.registerPlayer(playerName);
-            JOptionPane.showMessageDialog(this, "Jugador registrado: " + playerName + " (ID: " + playerId + ")");
+            JOptionPane.showMessageDialog(this,
+                    "✅ Jugador registrado: " + playerName + " (ID: " + playerId + ")");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -50,7 +52,9 @@ public class GameMenuGUI extends JFrame {
     private void listPlayers() {
         try {
             java.util.List<String> players = game.listPlayers();
-            JOptionPane.showMessageDialog(this, "Jugadores:\n" + String.join("\n", players));
+            JOptionPane.showMessageDialog(this,
+                    players.isEmpty() ? "⚠️ No hay jugadores registrados"
+                            : "Jugadores:\n" + String.join("\n", players));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -59,13 +63,15 @@ public class GameMenuGUI extends JFrame {
     private void deletePlayer() {
         try {
             String input = JOptionPane.showInputDialog(this, "Ingrese el ID del jugador a eliminar:");
+            if (input == null) return;
             int id = Integer.parseInt(input);
             if (id == playerId) {
-                JOptionPane.showMessageDialog(this, "No puedes eliminar tu propio jugador.");
+                JOptionPane.showMessageDialog(this, "❌ No puedes eliminar tu propio jugador.");
                 return;
             }
             boolean removed = game.removePlayer(id);
-            JOptionPane.showMessageDialog(this, removed ? "Jugador eliminado." : "No existe jugador con ese ID.");
+            JOptionPane.showMessageDialog(this,
+                    removed ? "Jugador eliminado." : "No existe jugador con ese ID.");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -73,10 +79,10 @@ public class GameMenuGUI extends JFrame {
 
     private void startGame() {
         if (playerId == 0) {
-            JOptionPane.showMessageDialog(this, "Primero debe registrar un jugador.");
+            JOptionPane.showMessageDialog(this, "⚠️ Primero debe registrar un jugador.");
             return;
         }
-        dispose();
+        dispose(); // cerrar menú
         GameClientGUI gui = new GameClientGUI(game, playerId, playerName);
         gui.setVisible(true);
     }
