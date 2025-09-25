@@ -1,65 +1,51 @@
 import javax.swing.*;
 import java.awt.*;
+import java.rmi.RemoteException;
 
 public class GameClientGUI extends JFrame {
     private final GameRMI game;
     private final int playerId;
     private final String playerName;
-
-    private JButton[][] myBoardButtons;
-    private JButton[][] enemyBoardButtons;
-    private JTextArea logArea;
-
-    private int[] shipSizes = {2, 3, 4};
-    private int currentShip = 0;
-    private boolean placingShips = true;
-    private JButton readyButton;
+    private final JTextArea logArea;
+    private final JButton[][] myBoardButtons;
+    private final JButton[][] enemyBoardButtons;
 
     public GameClientGUI(GameRMI game, int playerId, String playerName) {
         this.game = game;
         this.playerId = playerId;
         this.playerName = playerName;
 
-        setTitle("Batalla Naval - " + playerName);
+        setTitle("Batalla Naval - Jugador: " + playerName);
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        JPanel boardsPanel = new JPanel(new GridLayout(1, 2, 20, 20));
+        JPanel boardsPanel = new JPanel(new GridLayout(1, 2));
 
-        // Tablero propio
+        myBoardButtons = new JButton[10][10];
+        enemyBoardButtons = new JButton[10][10];
+
+        // 📌 Tablero propio
         JPanel myBoardPanel = new JPanel(new GridLayout(10, 10));
         myBoardPanel.setBorder(BorderFactory.createTitledBorder("Tu tablero"));
-        myBoardButtons = new JButton[10][10];
         for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 10; j++) {
-                int x = i, y = j;
                 myBoardButtons[i][j] = new JButton("~");
-                myBoardButtons[i][j].setBackground(Color.CYAN);
-                myBoardButtons[i][j].addActionListener(e -> {
-                    if (placingShips) placeShipAt(x, y);
-                });
+                myBoardButtons[i][j].setEnabled(false);
                 myBoardPanel.add(myBoardButtons[i][j]);
             }
         }
 
-        // Tablero enemigo
+        // 📌 Tablero enemigo
         JPanel enemyBoardPanel = new JPanel(new GridLayout(10, 10));
         enemyBoardPanel.setBorder(BorderFactory.createTitledBorder("Tablero enemigo"));
-        enemyBoardButtons = new JButton[10][10];
         for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 10; j++) {
-                int x = i, y = j;
+                final int x = i, y = j;
                 enemyBoardButtons[i][j] = new JButton("~");
-                enemyBoardButtons[i][j].setBackground(Color.CYAN);
-                enemyBoardButtons[i][j].setEnabled(false);
-                enemyBoardButtons[i][j].addActionListener(e -> {
-                    try {
-                        String result = game.shoot(playerId, x, y);
-                        log(result);
-                        updateBoards();
-                    } catch (Exception ex) { ex.printStackTrace(); }
-                });
+                int finalI = i;
+                int finalJ = j;
+                enemyBoardButtons[i][j].addActionListener(e -> shoot(finalI, finalJ));
                 enemyBoardPanel.add(enemyBoardButtons[i][j]);
             }
         }
@@ -67,98 +53,62 @@ public class GameClientGUI extends JFrame {
         boardsPanel.add(myBoardPanel);
         boardsPanel.add(enemyBoardPanel);
 
-        // Área mensajes
+        // 📌 Log con Scroll
         logArea = new JTextArea();
         logArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(logArea);
-        scrollPane.setBorder(BorderFactory.createTitledBorder("Mensajes"));
+        JScrollPane scrollPane = new JScrollPane(logArea,
+                JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
         add(boardsPanel, BorderLayout.CENTER);
         add(scrollPane, BorderLayout.SOUTH);
 
-        log("✅ Bienvenido " + playerName + ". Coloca tus barcos en el tablero.");
-
-        // Polling para turnos
-        new Thread(() -> {
-            while (true) {
-                try {
-                    SwingUtilities.invokeLater(this::refreshTurn);
-                    Thread.sleep(2000);
-                } catch (Exception e) { e.printStackTrace(); }
-            }
-        }).start();
+        refreshBoards();
     }
 
-    private void placeShipAt(int x, int y) {
+    private void shoot(int x, int y) {
         try {
-            int size = shipSizes[currentShip];
-            String orientation = JOptionPane.showInputDialog(
-                    this, "Barco de tamaño " + size + " - Orientación (H/V):");
-            if (orientation == null) return;
-            orientation = orientation.toUpperCase();
+            String result = game.shoot(playerId, x, y);
+            log("Disparo en (" + x + "," + y + "): " + result);
 
-            boolean placed = game.placeShip(playerId, x, y, size, orientation);
-            if (placed) {
-                log("✅ Barco de tamaño " + size + " colocado en (" + x + "," + y + ")");
-                updateBoards();
-                currentShip++;
-                if (currentShip >= shipSizes.length) {
-                    placingShips = false;
-                    showReadyButton();
+            // refrescar tableros
+            refreshBoards();
+
+            // 👉 Revisar si alguien ganó
+            int winnerId = game.checkWinner();
+            if (winnerId != -1) {
+                if (winnerId == playerId) {
+                    JOptionPane.showMessageDialog(this, "🎉 ¡Has ganado la partida!");
+                } else {
+                    JOptionPane.showMessageDialog(this, "😢 Has perdido. Ganó tu oponente.");
                 }
-            } else {
-                log("❌ No se pudo colocar el barco.");
+                dispose();
+                SwingUtilities.invokeLater(() -> new GameMenuGUI().setVisible(true));
             }
-        } catch (Exception e) { e.printStackTrace(); }
+
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 
-    private void showReadyButton() {
-        readyButton = new JButton("✅ Listo para jugar");
-        add(readyButton, BorderLayout.NORTH);
-        revalidate();
-        readyButton.addActionListener(e -> {
-            try {
-                game.setPlayerReady(playerId);
-                log("⏳ Esperando a los demás jugadores...");
-                readyButton.setEnabled(false);
-            } catch (Exception ex) { ex.printStackTrace(); }
-        });
-    }
-
-    private void updateBoards() {
+    private void refreshBoards() {
         try {
             char[][] myBoard = game.getBoard(playerId);
+            char[][] enemyBoard = game.getEnemyBoard(playerId);
+
             for (int i = 0; i < 10; i++) {
                 for (int j = 0; j < 10; j++) {
                     myBoardButtons[i][j].setText(String.valueOf(myBoard[i][j]));
-                    switch (myBoard[i][j]) {
-                        case 'B': myBoardButtons[i][j].setBackground(Color.GREEN); break;
-                        case 'X': myBoardButtons[i][j].setBackground(Color.RED); break;
-                        case 'O': myBoardButtons[i][j].setBackground(Color.GRAY); break;
-                        default:  myBoardButtons[i][j].setBackground(Color.CYAN); break;
-                    }
+                    enemyBoardButtons[i][j].setText(String.valueOf(enemyBoard[i][j]));
                 }
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
     }
 
-    private void refreshTurn() {
-        try {
-            String msg = game.getCurrentTurn();
-            log(msg);
-            if (msg.contains(playerName)) {
-                enableEnemyBoard(true);
-            } else {
-                enableEnemyBoard(false);
-            }
-        } catch (Exception e) { e.printStackTrace(); }
+    private void log(String msg) {
+        logArea.append(msg + "\n");
+        logArea.setCaretPosition(logArea.getDocument().getLength()); // 📌 autoscroll
     }
-
-    private void enableEnemyBoard(boolean enable) {
-        for (int i = 0; i < 10; i++)
-            for (int j = 0; j < 10; j++)
-                enemyBoardButtons[i][j].setEnabled(enable);
-    }
-
-    private void log(String msg) { logArea.append(msg + "\n"); }
 }
