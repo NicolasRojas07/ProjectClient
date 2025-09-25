@@ -15,15 +15,6 @@ public class GameClientGUI extends JFrame {
     private boolean placingShips = true;
     private JButton readyButton;
 
-    // Panel superior para botón de listo
-    private JPanel topPanel;
-
-    // Variables para log eficiente
-    private StringBuilder logBuffer = new StringBuilder();
-    private int logUpdateCounter = 0;
-    private static final int LOG_UPDATE_INTERVAL = 3; // actualizar log cada 3 mensajes
-    private String lastTurnMsg = ""; // evitar repetición de mensajes de turno
-
     public GameClientGUI(GameRMI game, int playerId, String playerName) {
         this.game = game;
         this.playerId = playerId;
@@ -32,11 +23,7 @@ public class GameClientGUI extends JFrame {
         setTitle("Batalla Naval - " + playerName);
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(new BorderLayout(10,10));
-
-        // Panel superior para botón de listo
-        topPanel = new JPanel(new FlowLayout());
-        add(topPanel, BorderLayout.NORTH);
+        setLayout(new BorderLayout());
 
         JPanel boardsPanel = new JPanel(new GridLayout(1, 2, 20, 20));
 
@@ -80,18 +67,10 @@ public class GameClientGUI extends JFrame {
         boardsPanel.add(myBoardPanel);
         boardsPanel.add(enemyBoardPanel);
 
-        // Área de mensajes (log)
+        // Área mensajes
         logArea = new JTextArea();
         logArea.setEditable(false);
-        logArea.setLineWrap(true);
-        logArea.setWrapStyleWord(true);
-
-        // Evitar resize y mantener altura fija
-        logArea.setPreferredSize(new Dimension(800, 150));
-        logArea.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
-
         JScrollPane scrollPane = new JScrollPane(logArea);
-        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
         scrollPane.setBorder(BorderFactory.createTitledBorder("Mensajes"));
 
         add(boardsPanel, BorderLayout.CENTER);
@@ -135,10 +114,8 @@ public class GameClientGUI extends JFrame {
 
     private void showReadyButton() {
         readyButton = new JButton("✅ Listo para jugar");
-        topPanel.add(readyButton);
-        topPanel.revalidate();
-        topPanel.repaint();
-
+        add(readyButton, BorderLayout.NORTH);
+        revalidate();
         readyButton.addActionListener(e -> {
             try {
                 game.setPlayerReady(playerId);
@@ -168,11 +145,7 @@ public class GameClientGUI extends JFrame {
     private void refreshTurn() {
         try {
             String msg = game.getCurrentTurn();
-            if (!msg.equals(lastTurnMsg)) { // Solo si cambia
-                log(msg);
-                lastTurnMsg = msg;
-            }
-
+            log(msg);
             if (msg.contains(playerName)) {
                 enableEnemyBoard(true);
             } else {
@@ -187,18 +160,5 @@ public class GameClientGUI extends JFrame {
                 enemyBoardButtons[i][j].setEnabled(enable);
     }
 
-    // Log eficiente y siempre mostrando últimos mensajes
-    private void log(String msg) {
-        logBuffer.append(msg).append("\n");
-        logUpdateCounter++;
-
-        if (logUpdateCounter >= LOG_UPDATE_INTERVAL) {
-            logArea.append(logBuffer.toString());
-            logBuffer.setLength(0);
-            logUpdateCounter = 0;
-
-            // Auto-scroll al final
-            logArea.setCaretPosition(logArea.getDocument().getLength());
-        }
-    }
+    private void log(String msg) { logArea.append(msg + "\n"); }
 }
