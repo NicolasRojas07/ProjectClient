@@ -48,7 +48,7 @@ public class GameMenuGUI extends JFrame {
         try {
             java.util.List<String> players = game.listPlayers();
             JOptionPane.showMessageDialog(this,
-                    players.isEmpty() ? "⚠️ No hay jugadores registrados"
+                    players.isEmpty() ? "No hay jugadores registrados"
                             : "Jugadores:\n" + String.join("\n", players));
         } catch (Exception e) { e.printStackTrace(); }
     }
