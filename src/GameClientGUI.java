@@ -77,7 +77,6 @@ public class GameClientGUI extends JFrame {
                         log(result);
                         flushLog();
                         updateBoards();
-                        checkGameOver(); // 👈 Validar fin de partida tras disparo
                     } catch (Exception ex) { ex.printStackTrace(); }
                 });
                 enemyBoardPanel.add(enemyBoardButtons[i][j]);
@@ -104,6 +103,7 @@ public class GameClientGUI extends JFrame {
         add(boardsPanel, BorderLayout.CENTER);
         add(scrollPane, BorderLayout.SOUTH);
 
+        // Mensaje inicial
         log("✅ Bienvenido " + playerName + ". Coloca tus barcos en el tablero.");
         flushTimer = new Timer(800, ev -> flushLog());
         flushTimer.setRepeats(true);
@@ -116,18 +116,23 @@ public class GameClientGUI extends JFrame {
             }
         });
 
-        // Polling para turnos
-        new Thread(() -> {
-            while (true) {
-                try {
-                    SwingUtilities.invokeLater(() -> {
-                        refreshTurn();
-                        checkGameOver(); // 👈 Validar fin de partida en cada ciclo
-                    });
-                    Thread.sleep(2000);
-                } catch (Exception e) { e.printStackTrace(); }
+        // 🔥 Timer en lugar de Thread
+        Timer gameTimer = new Timer(2000, e -> {
+            try {
+                if (game.isGameOver()) {
+                    String winner = game.getWinner();
+                    ((Timer)e.getSource()).stop(); // detener timer
+                    JOptionPane.showMessageDialog(this, "🎉 El ganador es: " + winner + " 🎉");
+                    dispose();
+                    new GameMenuGUI().setVisible(true);
+                } else {
+                    refreshTurn();
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
-        }).start();
+        });
+        gameTimer.start();
     }
 
     private void placeShipAt(int x, int y) {
@@ -173,7 +178,6 @@ public class GameClientGUI extends JFrame {
 
     private void updateBoards() {
         try {
-            // Refrescar mi tablero
             char[][] myBoard = game.getBoard(playerId);
             for (int i = 0; i < 10; i++) {
                 for (int j = 0; j < 10; j++) {
@@ -187,7 +191,6 @@ public class GameClientGUI extends JFrame {
                 }
             }
 
-            // Refrescar tablero enemigo
             try {
                 char[][] enemyBoard = game.getEnemyBoard(playerId);
                 if (enemyBoard != null) {
@@ -233,7 +236,10 @@ public class GameClientGUI extends JFrame {
         if (msg == null) return;
         logBuffer.append(msg).append("\n");
         logUpdateCounter++;
-        if (logUpdateCounter >= LOG_UPDATE_INTERVAL) flushLog();
+
+        if (logUpdateCounter >= LOG_UPDATE_INTERVAL) {
+            flushLog();
+        }
     }
 
     private void flushLog() {
@@ -244,24 +250,10 @@ public class GameClientGUI extends JFrame {
             logBuffer.setLength(0);
             logUpdateCounter = 0;
         }
+
         SwingUtilities.invokeLater(() -> {
             logArea.append(toAppend);
             logArea.setCaretPosition(logArea.getDocument().getLength());
         });
-    }
-
-    // 👇 Nuevo método para validar fin de partida
-    private void checkGameOver() {
-        try {
-            if (game.isGameOver()) {
-                String winner = game.getWinner();
-                JOptionPane.showMessageDialog(this,
-                        "🎉 ¡Juego terminado!\nGanador: " + winner,
-                        "Fin de partida", JOptionPane.INFORMATION_MESSAGE);
-
-                dispose(); // cerrar ventana del cliente
-                SwingUtilities.invokeLater(() -> new GameMenuGUI().setVisible(true));
-            }
-        } catch (Exception e) { e.printStackTrace(); }
     }
 }
